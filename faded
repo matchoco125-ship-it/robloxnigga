@@ -1,0 +1,1301 @@
+local TweenService      = game:GetService("TweenService")
+local UserInputService  = game:GetService("UserInputService")
+local RunService        = game:GetService("RunService")
+local Players           = game:GetService("Players")
+local Lighting          = game:GetService("Lighting")
+
+if not Players.LocalPlayer then
+    Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+end
+pcall(function() Players.LocalPlayer:WaitForChild("PlayerGui", 10) end)
+pcall(function()
+    if not Players.LocalPlayer.Character then
+        Players.LocalPlayer.CharacterAdded:Wait()
+    end
+end)
+
+_G._FH_CarpetTP_Speed = _G._FH_CarpetTP_Speed or 214
+
+do	
+    local function _stripToolPhysics(tool)
+        if not tool or not tool:IsA("Tool") then return end
+        for _, d in ipairs(tool:GetDescendants()) do
+            if d:IsA("BasePart") then
+                pcall(function()
+                    d.Massless   = true
+                    d.CanCollide = false
+                end)
+            elseif d:IsA("BodyVelocity") or d:IsA("BodyPosition") or d:IsA("BodyGyro")
+                or d:IsA("AlignPosition") or d:IsA("AlignOrientation") or d:IsA("VectorForce")
+                or d:IsA("LinearVelocity") or d:IsA("AngularVelocity") then
+                pcall(function() d.Enabled = false end)
+            end
+        end
+        tool.DescendantAdded:Connect(function(d)
+            if d:IsA("BasePart") then
+                pcall(function()
+                    d.Massless   = true
+                    d.CanCollide = false
+                end)
+            end
+        end)
+    end
+    local function _wireChar(c)
+        for _, t in ipairs(c:GetChildren()) do _stripToolPhysics(t) end
+        c.ChildAdded:Connect(_stripToolPhysics)
+    end
+    if Players.LocalPlayer.Character then _wireChar(Players.LocalPlayer.Character) end
+    Players.LocalPlayer.CharacterAdded:Connect(_wireChar)
+end
+local _fhCarpetActiveTween = nil
+function _G._FH_CarpetTP(targetCF, speedOverride)
+    local lp  = Players.LocalPlayer
+    local chr = lp and lp.Character
+    local hrp = chr and chr:FindFirstChild("HumanoidRootPart")
+    if not hrp or not targetCF then return end
+    if typeof(targetCF) == "Vector3" then targetCF = CFrame.new(targetCF) end
+    local dist = (hrp.Position - targetCF.Position).Magnitude
+    local dur  = math.max(0.05, dist / (speedOverride or _G._FH_CarpetTP_Speed or 214))
+    local bp = lp:FindFirstChildOfClass("Backpack")
+    local carpet = (bp and bp:FindFirstChild("Flying Carpet")) or chr:FindFirstChild("Flying Carpet")
+    local hum = chr:FindFirstChildOfClass("Humanoid")
+    if carpet and hum and carpet.Parent ~= chr then pcall(function() hum:EquipTool(carpet) end) end
+    if _fhCarpetActiveTween then pcall(function() _fhCarpetActiveTween:Cancel() end) end
+    local tw = TweenService:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), {CFrame = targetCF})
+    _fhCarpetActiveTween = tw
+    tw:Play()
+    return tw
+end
+
+do
+    local _cfgOk, _cfgRaw = pcall(function() return readfile("FadedHub_Config.json") end)
+    local _cfgData = nil
+    if _cfgOk and _cfgRaw then
+        local _parseOk, _parsed = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(_cfgRaw)
+        end)
+        if _parseOk and type(_parsed) == "table" then _cfgData = _parsed end
+    end
+    if _cfgData and type(_cfgData.toggles) == "table"
+       and _cfgData.toggles["Optimizations"] == false then
+        _G._FH_AlwaysOnFPS = false
+    else
+        _G._FH_AlwaysOnFPS = true
+    end
+
+    if _cfgData and type(_cfgData.sliders) == "table" then
+        local cap = tonumber(_cfgData.sliders.fps_cap)
+        if cap then
+            local setter = rawget(getfenv(), "setfpscap") or rawget(getfenv(), "set_fps_cap")
+            if setter then pcall(setter, math.floor(cap)) end
+        end
+    end
+end
+
+task.spawn(function()
+    pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+    pcall(function()
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd        = 1e9
+        Lighting.Brightness    = 1
+    end)
+end)
+local function _buildMiniPetsSection(
+    Config, T, isMobile, Corner, Stroke, Label, Tween, F,
+    MiscTab, Players, configRegistry, ShowToggleNotification,
+    _buildMakeAnimalCard, ANIMAL_LIST,
+    _FH_AddThemeStroke, CreateToggle, GUI, FH_SaveConfig, _FH_BuildThemeSequence
+)
+    Config.sliders = Config.sliders or {}
+    Config.toggles = Config.toggles or {}
+
+    local selectedItem = tostring(Config.sliders.hide_gui_item or "")
+    local toggleName   = "Hide GUI On Equip"
+    local enabled      = Config.toggles[toggleName] == true
+
+    local cardH = isMobile and 110 or 88
+    local card = Instance.new("Frame")
+    card.Size                   = UDim2.new(1, -16, 0, cardH)
+    card.BackgroundColor3       = T.Card
+    card.BackgroundTransparency = 0.15
+    card.BorderSizePixel        = 0
+    card.Parent                 = MiscTab.scroll
+    Corner(card, 8)
+    local cStroke = Stroke(card, Color3.fromRGB(255, 255, 255), 1)
+    _FH_AddThemeStroke(cStroke)
+
+    local bar = Instance.new("Frame")
+    bar.Size             = UDim2.new(0, 3, 0, cardH - 16)
+    bar.Position         = UDim2.new(0, 0, 0, 8)
+    bar.BackgroundColor3 = T.TrackOff
+    bar.BorderSizePixel  = 0
+    bar.ZIndex           = 2
+    bar.Parent           = card
+    Corner(bar, 2)
+
+    local nameLbl = Label(card, "Hide GUI Item", isMobile and 11 or 13, T.White, Enum.Font.GothamMedium)
+    nameLbl.Size         = UDim2.new(1, -28, 0, 16)
+    nameLbl.Position     = UDim2.new(0, 14, 0, 8)
+    nameLbl.ZIndex       = 2
+
+    local descLbl = Label(card, "Hides entire GUI while this item is equipped; restores on unequip", isMobile and 9 or 11, T.Dim, Enum.Font.Gotham)
+    descLbl.Size         = UDim2.new(1, -28, 0, 14)
+    descLbl.Position     = UDim2.new(0, 14, 0, 26)
+    descLbl.ZIndex       = 2
+    descLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+    local ddBtn = Instance.new("TextButton")
+    ddBtn.Size             = UDim2.new(1, -28, 0, 28)
+    ddBtn.Position         = UDim2.new(0, 14, 1, -36)
+    ddBtn.BackgroundColor3 = T.Card
+    ddBtn.BorderSizePixel  = 0
+    ddBtn.AutoButtonColor  = false
+    ddBtn.Text             = (selectedItem ~= "" and selectedItem) or "▼  Click to select item"
+    ddBtn.TextSize         = isMobile and 10 or 11
+    ddBtn.Font             = Enum.Font.GothamBold
+    ddBtn.TextColor3       = T.White
+    ddBtn.ZIndex           = 3
+    ddBtn.Parent           = card
+    Corner(ddBtn, 6)
+    Stroke(ddBtn, T.Border, 1)
+
+    local popup = Instance.new("Frame")
+    popup.Size                   = UDim2.new(0, 240, 0, 200)
+    popup.BackgroundColor3       = T.Card
+    popup.BackgroundTransparency = 0
+    popup.BorderSizePixel        = 0
+    popup.Visible                = false
+    popup.ZIndex                 = 200
+    popup.Parent                 = GUI
+    Corner(popup, 8)
+    Stroke(popup, T.Border, 1)
+
+    local popupScroll = Instance.new("ScrollingFrame")
+    popupScroll.Size                   = UDim2.new(1, -8, 1, -8)
+    popupScroll.Position               = UDim2.new(0, 4, 0, 4)
+    popupScroll.BackgroundTransparency = 1
+    popupScroll.BorderSizePixel        = 0
+    popupScroll.ScrollBarThickness     = 4
+    popupScroll.CanvasSize             = UDim2.new(0, 0, 0, 0)
+    popupScroll.ZIndex                 = 201
+    popupScroll.Parent                 = popup
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Padding   = UDim.new(0, 2)
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Parent    = popupScroll
+
+    local function makeItemBtn(toolName)
+        local b = Instance.new("TextButton")
+        b.Size                   = UDim2.new(1, -4, 0, 24)
+        b.BackgroundColor3       = T.Card
+        b.BackgroundTransparency = 0.4
+        b.BorderSizePixel        = 0
+        b.Text                   = toolName
+        b.TextSize               = isMobile and 10 or 11
+        b.Font                   = Enum.Font.Gotham
+        b.TextColor3             = T.White
+        b.AutoButtonColor        = true
+        b.ZIndex                 = 202
+        b.Parent                 = popupScroll
+        Corner(b, 4)
+        b.MouseButton1Click:Connect(function()
+            selectedItem = toolName
+            ddBtn.Text   = toolName
+            Config.sliders.hide_gui_item = toolName
+            pcall(FH_SaveConfig)
+            popup.Visible = false
+        end)
+        return b
+    end
+
+    local function refreshList()
+        for _, c in ipairs(popupScroll:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
+        end
+        local seen = {}
+        local lp = Players and Players.LocalPlayer
+        if lp then
+            local bp = lp:FindFirstChild("Backpack")
+            if bp then
+                for _, t in ipairs(bp:GetChildren()) do
+                    if t:IsA("Tool") and not seen[t.Name] then
+                        seen[t.Name] = true
+                        makeItemBtn(t.Name)
+                    end
+                end
+            end
+            local ch = lp.Character
+            if ch then
+                for _, t in ipairs(ch:GetChildren()) do
+                    if t:IsA("Tool") and not seen[t.Name] then
+                        seen[t.Name] = true
+                        makeItemBtn(t.Name)
+                    end
+                end
+            end
+        end
+        if next(seen) == nil then
+            local empty = Instance.new("TextLabel")
+            empty.Size                   = UDim2.new(1, -4, 0, 24)
+            empty.BackgroundTransparency = 1
+            empty.Text                   = "No tools in Backpack or equipped"
+            empty.TextSize               = isMobile and 10 or 11
+            empty.Font                   = Enum.Font.Gotham
+            empty.TextColor3             = T.Dim
+            empty.ZIndex                 = 202
+            empty.Parent                 = popupScroll
+        end
+        popupScroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 4)
+    end
+
+    ddBtn.MouseButton1Click:Connect(function()
+        if popup.Visible then popup.Visible = false return end
+        refreshList()
+        local abs = ddBtn.AbsolutePosition
+        local sz  = ddBtn.AbsoluteSize
+        local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
+        local px = math.min(abs.X, viewport.X - 240 - 8)
+        local py = math.min(abs.Y + sz.Y + 4, viewport.Y - 200 - 8)
+        popup.Position = UDim2.new(0, math.max(8, px), 0, math.max(8, py))
+        popup.Visible  = true
+    end)
+
+    local function isSelectedEquipped()
+        if selectedItem == "" then return false end
+        local lp = Players and Players.LocalPlayer
+        local ch = lp and lp.Character
+        if not ch then return false end
+        for _, t in ipairs(ch:GetChildren()) do
+            if t:IsA("Tool") and t.Name == selectedItem then return true end
+        end
+        return false
+    end
+
+    local _HIDE_GUI_ESP_NAMES = {
+        "Player ESP",
+        "Base ESP", "Timer ESP", "Allowed ESP",
+        "Clone ESP", "Brainrot ESP",
+    }
+    local _espStateBeforeHide = {}
+    local _espCurrentlyHidden = false
+
+    local function disableAllESPs()
+        if _espCurrentlyHidden then return end
+        _espCurrentlyHidden = true
+        _espStateBeforeHide = {}
+        for _, espName in ipairs(_HIDE_GUI_ESP_NAMES) do
+            local reg = configRegistry[espName]
+            if reg and reg.getState and reg.getState() == true then
+                _espStateBeforeHide[espName] = true
+                pcall(function()
+                    if reg.setEnabled then reg.setEnabled(false)
+                    elseif reg.doToggle then reg.doToggle() end
+                end)
+            end
+        end
+    end
+
+    local function restoreAllESPs()
+        if not _espCurrentlyHidden then return end
+        _espCurrentlyHidden = false
+        for _, espName in ipairs(_HIDE_GUI_ESP_NAMES) do
+            if _espStateBeforeHide[espName] then
+                local reg = configRegistry[espName]
+                if reg then
+                    pcall(function()
+                        if reg.setEnabled then reg.setEnabled(true)
+                        elseif reg.doToggle then reg.doToggle() end
+                    end)
+                end
+            end
+        end
+        _espStateBeforeHide = {}
+    end
+
+    local _petWasHidden = false
+
+    local function hideMiniPets()
+        if _petWasHidden then return end
+        _petWasHidden = true
+        pcall(function()
+            for _, obj in ipairs(workspace:GetChildren()) do
+                if obj:IsA("Model") and obj.Name:sub(1, 4) == "MBF_" then
+                    for _, part in ipairs(obj:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.LocalTransparencyModifier = 1
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    local function showMiniPets()
+        if not _petWasHidden then return end
+        _petWasHidden = false
+        pcall(function()
+            for _, obj in ipairs(workspace:GetChildren()) do
+                if obj:IsA("Model") and obj.Name:sub(1, 4) == "MBF_" then
+                    for _, part in ipairs(obj:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.LocalTransparencyModifier = 0
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    local _progBarGui = nil
+    local _progBarFill = nil
+    local _progBarWasHidden = false
+
+    local function _findProgressBarGui()
+        if _progBarGui and _progBarGui.Parent then return _progBarGui end
+
+        local cg = game:GetService("CoreGui")
+        _progBarGui = cg:FindFirstChild("FH_AutoGrabProgress")
+        if not _progBarGui then
+            local pg = Players.LocalPlayer:FindFirstChild("PlayerGui")
+            _progBarGui = pg and pg:FindFirstChild("FH_AutoGrabProgress")
+        end
+        if _progBarGui and not _progBarFill then
+
+            local frame = _progBarGui:FindFirstChildOfClass("Frame")
+            if frame then
+                local track = frame:FindFirstChild("Frame")
+
+                for _, d in ipairs(frame:GetDescendants()) do
+                    if d:IsA("Frame") and d.Name ~= "Frame" and d.Parent
+                    and d.Parent:IsA("Frame") then
+                        _progBarFill = d
+                        break
+                    end
+                end
+
+                if not _progBarFill then
+                    local inner = frame:FindFirstChildOfClass("Frame")
+                    if inner then
+                        _progBarFill = inner:FindFirstChildOfClass("Frame")
+                    end
+                end
+            end
+
+            if _progBarFill then
+                local function _syncProgBarTheme()
+                    pcall(function()
+                        if not (_progBarFill and _progBarFill.Parent) then return end
+                        local g = _progBarFill:FindFirstChildOfClass("UIGradient")
+                        if not g then
+                            g = Instance.new("UIGradient")
+                            g.Parent = _progBarFill
+                        end
+                        if _FH_BuildThemeSequence then
+                            g.Color = _FH_BuildThemeSequence()
+                        end
+
+                        _progBarFill.BackgroundColor3 = _G._FH_AccentA or Color3.fromRGB(60, 210, 100)
+                    end)
+                end
+
+                _syncProgBarTheme()
+
+                _G._FH_ThemeCallbacks = _G._FH_ThemeCallbacks or {}
+                table.insert(_G._FH_ThemeCallbacks, _syncProgBarTheme)
+            end
+        end
+        return _progBarGui
+    end
+
+    local function hideProgressBar()
+        if _progBarWasHidden then return end
+        _progBarWasHidden = true
+
+        _G._FH_HideAutoGrabBar = true
+        pcall(function()
+            local gui = _findProgressBarGui()
+            if gui then gui.Enabled = false end
+        end)
+    end
+
+    local function showProgressBar()
+        if not _progBarWasHidden then return end
+        _progBarWasHidden = false
+
+        local reg = configRegistry["Hide Progress Bar"]
+        _G._FH_HideAutoGrabBar = (reg and reg.getState and reg.getState()) or false
+        pcall(function()
+            if not _G._FH_HideAutoGrabBar then
+                local gui = _findProgressBarGui()
+                if gui then gui.Enabled = true end
+            end
+        end)
+    end
+
+    task.defer(_findProgressBarGui)
+
+    do
+        local function _fixAutoGrabBarTheme()
+            pcall(function()
+                local cg = game:GetService("CoreGui")
+                local gui = cg:FindFirstChild("FH_AutoGrabProgress")
+                    or (Players.LocalPlayer:FindFirstChild("PlayerGui")
+                        and Players.LocalPlayer.PlayerGui:FindFirstChild("FH_AutoGrabProgress"))
+                if not gui then return end
+                for _, d in ipairs(gui:GetDescendants()) do
+                    if d:IsA("UIGradient") and d.Parent and d.Parent:IsA("Frame") then
+                        if _FH_BuildThemeSequence then
+                            d.Color = _FH_BuildThemeSequence()
+                        end
+                        local parentFrame = d.Parent
+                        parentFrame.BackgroundColor3 = _G._FH_AccentA or Color3.fromRGB(60, 210, 100)
+                    end
+                end
+
+                local frame = gui:FindFirstChildOfClass("Frame")
+                if frame then
+                    for _, d in ipairs(frame:GetDescendants()) do
+                        if d:IsA("UIStroke") then
+                            local g = d:FindFirstChildOfClass("UIGradient")
+                            if not g then
+                                g = Instance.new("UIGradient")
+                                g.Parent = d
+                                table.insert(_G._FH_ThemeStrokes, g)
+                            end
+                            if _FH_BuildThemeSequence then g.Color = _FH_BuildThemeSequence() end
+                        end
+                    end
+                end
+            end)
+        end
+        _G._FH_ThemeCallbacks = _G._FH_ThemeCallbacks or {}
+        table.insert(_G._FH_ThemeCallbacks, _fixAutoGrabBarTheme)
+        pcall(_fixAutoGrabBarTheme)
+    end
+
+    local function applyGuiState()
+        if not GUI then return end
+        if not enabled then
+
+            GUI.Enabled = true
+            restoreAllESPs()
+            showMiniPets()
+            showProgressBar()
+            return
+        end
+        local equipped = isSelectedEquipped()
+        GUI.Enabled = not equipped
+        if equipped then
+            disableAllESPs()
+            hideMiniPets()
+            hideProgressBar()
+        else
+            restoreAllESPs()
+            showMiniPets()
+            showProgressBar()
+        end
+    end
+
+    local _charConns = {}
+    local function disconnectCharConns()
+        for _, c in ipairs(_charConns) do pcall(function() c:Disconnect() end) end
+        _charConns = {}
+    end
+
+    local function hookChar(char)
+        disconnectCharConns()
+        table.insert(_charConns, char.ChildAdded:Connect(function(c)
+            if c:IsA("Tool") then task.wait(); applyGuiState() end
+        end))
+        table.insert(_charConns, char.ChildRemoved:Connect(function(c)
+            if c:IsA("Tool") then task.wait(); applyGuiState() end
+        end))
+
+        if GUI then GUI.Enabled = true end
+        restoreAllESPs()
+        showMiniPets()
+        showProgressBar()
+        task.wait(0.1)
+        applyGuiState()
+    end
+
+    local lp = Players and Players.LocalPlayer
+    if lp then
+        if lp.Character then hookChar(lp.Character) end
+        lp.CharacterAdded:Connect(hookChar)
+    end
+
+    CreateToggle(MiscTab.scroll, toggleName, "Auto-hides the UI while your selected item is equipped",
+        function(v)
+            enabled = v
+            if not v then
+                if GUI then GUI.Enabled = true end
+                restoreAllESPs()
+                showMiniPets()
+                showProgressBar()
+            end
+            applyGuiState()
+        end
+    )
+end
+
+task.spawn(function()
+    pcall(function()
+        for _, e in ipairs(Lighting:GetChildren()) do
+            if e:IsA("PostEffect") or e:IsA("BlurEffect") or e:IsA("BloomEffect")
+            or e:IsA("SunRaysEffect") or e:IsA("DepthOfFieldEffect") or e:IsA("ColorCorrectionEffect") then
+                pcall(function() e.Enabled = false end)
+            end
+        end
+    end)
+end)
+task.spawn(function()
+
+    task.wait()
+    pcall(function()
+        local _step = 0
+        local YIELD_EVERY = 200
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            local cls = obj.ClassName
+            if cls == "ParticleEmitter" or cls == "Trail"
+            or cls == "Smoke" or cls == "Fire" or cls == "Sparkles" then
+                obj.Enabled = false
+            elseif obj:IsA("BasePart") then
+                if obj.Material == Enum.Material.Glass then
+                    pcall(function() obj.Material = Enum.Material.SmoothPlastic end)
+                end
+            end
+            _step = _step + 1
+            if _step % YIELD_EVERY == 0 then task.wait() end
+        end
+    end)
+end)
+do
+    local NetMod   = game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("Net")
+    local NetClone = require(NetMod:Clone())
+
+    local function getRemote(name)
+        if not name then return nil end
+        local ok, rn = pcall(function() return NetClone:RemoteEvent(name) end)
+        if not ok or not rn then return nil end
+        return NetMod[tostring(rn)]
+    end
+    local function getRemoteFunction(name)
+        if not name then return nil end
+        local ok, rn = pcall(function() return NetClone:RemoteFunction(name) end)
+        if not ok or not rn then return nil end
+        return NetMod[tostring(rn)]
+    end
+    _G._FH_NetMod          = NetMod
+    _G._FH_NetClone        = NetClone
+    _G._FH_GetRemote       = getRemote
+    _G._FH_GetRemoteFn     = getRemoteFunction
+    _FH_StealRemote = getRemote("3ba148c9-7ed6-4675-93f8-9f7c356a2c54")
+
+    _FH_UseItemRemote = getRemote("UseItem")
+    _FH_TRIP_U1  = "68c86eb7-eb7e-4b4d-96ae-cf7cd847c5b0"
+    _FH_TRIP_U2  = "07b9cc25-2a1f-4a26-a0ec-f2fab578d8bd"
+    _FH_STEAL_U1 = "cda5c764-d4e3-45c4-94e4-53a538347590"
+    _FH_STEAL_U2 = "8c852fbf-d542-4ef4-aa28-612e24db8d4a"
+    function _FH_ResolvePromptTarget(prompt)
+        if not prompt or not prompt.Parent then return nil end
+        local att    = prompt.Parent
+        local spawn  = att and att.Parent
+        local base   = spawn and spawn.Parent
+        local podium = base and base.Parent
+        local pods   = podium and podium.Parent
+        local plot   = pods and pods.Parent
+        local pod    = podium and tonumber(podium.Name)
+        if not (plot and pod) then return nil end
+        return { plotName = plot.Name, pod = pod }
+    end
+    function _FH_StartTrip(target)
+        local T0 = workspace:GetServerTimeNow()
+        _G._FH_LastStealStart = tick()
+        return { t0 = T0, startedAt = tick(), target = target }
+    end
+    function _FH_FinishSteal(ctx)
+        if not ctx or not ctx.target then return false end
+        local elapsed = tick() - ctx.startedAt
+        if elapsed < 1.3 then task.wait(1.3 - elapsed) end
+        local ts = ctx.t0 + 1.3 + 31
+        pcall(function() _FH_StealRemote:FireServer(ts, _FH_STEAL_U1, ctx.target.plotName, ctx.target.pod) end)
+        pcall(function() _FH_StealRemote:FireServer(ts, _FH_STEAL_U2, ctx.target.plotName, ctx.target.pod) end)
+        return true
+    end
+    function _FH_FireStealPrompt(prompt)
+        local target = _FH_ResolvePromptTarget(prompt)
+        if not target then return false end
+        local ctx = _FH_StartTrip(target)
+        return _FH_FinishSteal(ctx)
+    end
+end
+
+local __stealActive_v2 = false
+_G.__stealActive = false
+
+local __stealCbCache_v2 = {}
+local __MIN_HOLD_TIME_v2       = 1.3
+local __TRIGGER_AFTER_GREEN_v2 = 0.02
+
+local function __buildStealCallbacks_v2(prompt)
+    if __stealCbCache_v2[prompt] then return __stealCbCache_v2[prompt] end
+    if not getconnections then return nil end
+    local data = { hold = {}, trigger = {} }
+    local ok1, conns1 = pcall(getconnections, prompt.PromptButtonHoldBegan)
+    if ok1 and type(conns1) == "table" then
+        for _, c in ipairs(conns1) do
+            if type(c.Function) == "function" then table.insert(data.hold, c.Function) end
+        end
+    end
+    local ok2, conns2 = pcall(getconnections, prompt.Triggered)
+    if ok2 and type(conns2) == "table" then
+        for _, c in ipairs(conns2) do
+            if type(c.Function) == "function" then table.insert(data.trigger, c.Function) end
+        end
+    end
+    if #data.hold == 0 and #data.trigger == 0 then return nil end
+    __stealCbCache_v2[prompt] = data
+    return data
+end
+
+local __FH_v2 = {}
+
+function __FH_v2.startStealHold(prompt, method)
+    if not prompt or not prompt.Parent then return nil end
+    local cb = __buildStealCallbacks_v2(prompt)
+    if not cb then return nil end
+
+    __stealActive_v2 = true
+    _G.__stealActive = true
+
+    for _, fn in ipairs(cb.hold) do task.spawn(fn) end
+    local now = tick()
+
+    return {
+        prompt          = prompt,
+        cb              = cb,
+        method          = method,
+        ragdollFireTime = now,
+        startedAt       = now,
+        holdBeganAt     = now,
+        holdDone        = true,
+    }
+end
+
+function __FH_v2.doHoldAndWait(ctx)
+    if ctx.holdDone then return end
+    for _, fn in ipairs(ctx.cb.hold) do task.spawn(fn) end
+    ctx.holdBeganAt = tick()
+    task.wait(__MIN_HOLD_TIME_v2)
+    ctx.holdDone = true
+end
+
+function __FH_v2.waitForStealTime(ctx, sec)
+    if not ctx then return end
+    if sec >= 1.0 then return end
+    local elapsed = tick() - ctx.ragdollFireTime
+    if elapsed < sec then task.wait(sec - elapsed) end
+end
+
+function __FH_v2.finishStealHold(ctx)
+    if not ctx then return false end
+    if not ctx.holdBeganAt then __FH_v2.doHoldAndWait(ctx) end
+    local heldFor = tick() - (ctx.holdBeganAt or tick())
+    if heldFor < __MIN_HOLD_TIME_v2 then task.wait(__MIN_HOLD_TIME_v2 - heldFor) end
+    task.wait(__TRIGGER_AFTER_GREEN_v2)
+    for _, fn in ipairs(ctx.cb.trigger) do task.spawn(fn) end
+    __stealActive_v2 = false
+    _G.__stealActive = false
+    return true
+end
+
+local function _FH_V2FireStealPrompt(prompt, finalizeFn)
+    if not prompt or not prompt.Parent then return false end
+    local cb = __buildStealCallbacks_v2(prompt)
+    if not cb then
+
+        local target = _FH_ResolvePromptTarget(prompt)
+        if not target then return false end
+        local ctx = _FH_StartTrip(target)
+        if finalizeFn then pcall(finalizeFn) end
+        return _FH_FinishSteal(ctx)
+    end
+
+    local target = _FH_ResolvePromptTarget(prompt)
+    local ctx = target and _FH_StartTrip(target) or nil
+
+    for _, fn in ipairs(cb.hold) do task.spawn(fn) end
+    local holdBeganAt = tick()
+
+    if finalizeFn then
+        local holdElapsed = tick() - holdBeganAt
+        local waitFor = 1.3 - holdElapsed - 0.05
+        if waitFor > 0 then task.wait(waitFor) end
+        pcall(finalizeFn)
+    else
+        local holdElapsed = tick() - holdBeganAt
+        if holdElapsed < __MIN_HOLD_TIME_v2 then
+            task.wait(__MIN_HOLD_TIME_v2 - holdElapsed)
+        end
+    end
+
+    task.wait(__TRIGGER_AFTER_GREEN_v2)
+
+    for _, fn in ipairs(cb.trigger) do task.spawn(fn) end
+
+    if ctx then
+        task.spawn(function() _FH_FinishSteal(ctx) end)
+    end
+    return true
+end
+
+local _FH_SAVE_PATH = "FadedHub_Config.json"
+local configRegistry = {}
+local HttpService   = game:GetService("HttpService")
+local function FH_LoadConfig()
+    local ok, raw = pcall(function() return readfile(_FH_SAVE_PATH) end)
+    if ok and raw then
+        local ok2, data = pcall(function() return HttpService:JSONDecode(raw) end)
+        if ok2 and type(data) == "table" then return data end
+    end
+    return nil
+end
+
+local _FH_RestoreComplete = false
+local _FH_SaveDebounceToken = 0
+local _FH_SaveLastQueued = 0
+local function _FH_DoSaveConfig()
+    pcall(function()
+        for name, reg in pairs(configRegistry) do
+            if reg.getState then
+                local live = reg.getState()
+
+                if not _G._FH_IsRestoring then
+                    Config.toggles[name] = live
+                elseif live == true or Config.toggles[name] == nil then
+                    Config.toggles[name] = live
+                end
+            end
+            if reg.getKeyCode then
+                local kc = reg.getKeyCode()
+                if kc then
+                    Config.keybinds[name] = kc.Name
+                elseif not _G._FH_IsRestoring then
+                    Config.keybinds[name] = nil
+                end
+            end
+        end
+        if SP and SP.wsBox then
+            Config.sliders = Config.sliders or {}
+            Config.sliders.sp_walkspeed = SP.wsBox.Text
+        end
+        if SP and SP.jpBox then
+            Config.sliders = Config.sliders or {}
+            Config.sliders.sp_jumppower = SP.jpBox.Text
+        end
+
+        if _G._FH_PotionSpeedValue then
+            Config.sliders = Config.sliders or {}
+            Config.sliders.potion_speed = _G._FH_PotionSpeedValue
+        end
+        if _G._FH_FpsCapValue then
+            Config.sliders = Config.sliders or {}
+            Config.sliders.fps_cap = _G._FH_FpsCapValue
+        end
+
+        Config.mini = Config.mini or {}
+        if SP  and SP.SpeedWin         then Config.mini.sp_open   = SP.SpeedWin.Visible         end
+        if SS  and SS.SSWin            then Config.mini.ss_open   = SS.SSWin.Visible             end
+        if AB  and AB.AllowBaseWin     then Config.mini.ab_open   = AB.AllowBaseWin.Visible      end
+        if FA  and FA.FAWin            then Config.mini.fa_open   = FA.FAWin.Visible             end
+        if FD  and FD.FDWin            then Config.mini.fd_open   = FD.FDWin.Visible             end
+        if QP  and QP.QPWin            then Config.mini.qp_open   = QP.QPWin.Visible             end
+        if CD  and CD.CDWin            then Config.mini.cd_open   = CD.CDWin.Visible             end
+        if WSK and WSK.WSKWin          then Config.mini.wsk_open  = WSK.WSKWin.Visible           end
+        if QS  and QS.QSWin            then Config.mini.qs_open   = QS.QSWin.Visible             end
+        if UB  and UB.UBWin            then Config.mini.ub_open   = UB.UBWin.Visible             end
+        if UB  and UB.isHorizontal ~= nil then Config.mini.ub_horiz = UB.isHorizontal == true end
+        if FS  and FS.FSWin            then Config.mini.fs_open   = FS.FSWin.Visible              end
+        if _G.SpammerGui and _G.SpammerGui.win then
+            Config.mini.spam_open      = _G.SpammerGui.win.Visible
+        end
+        if _G.SpammerGui and _G.SpammerGui.isCustomizeOpen then
+            Config.mini.customize_open = _G.SpammerGui.isCustomizeOpen()
+        end
+        local function _snapPos(win)
+            if not win then return nil end
+            return {
+                x  = win.Position.X.Offset,
+                y  = win.Position.Y.Offset,
+                xs = win.Position.X.Scale,
+                ys = win.Position.Y.Scale,
+            }
+        end
+        if SP  and SP.SpeedWin         then Config.mini.sp_pos   = _snapPos(SP.SpeedWin)         end
+        if SS  and SS.SSWin            then Config.mini.ss_pos   = _snapPos(SS.SSWin)            end
+        if AB  and AB.AllowBaseWin     then Config.mini.ab_pos   = _snapPos(AB.AllowBaseWin)     end
+        if FA  and FA.FAWin            then Config.mini.fa_pos   = _snapPos(FA.FAWin)            end
+        if FD  and FD.FDWin            then Config.mini.fd_pos   = _snapPos(FD.FDWin)            end
+        if QP  and QP.QPWin            then Config.mini.qp_pos   = _snapPos(QP.QPWin)            end
+        if CD  and CD.CDWin            then Config.mini.cd_pos   = _snapPos(CD.CDWin)            end
+        if WSK and WSK.WSKWin          then Config.mini.wsk_pos  = _snapPos(WSK.WSKWin)          end
+        if QS  and QS.QSWin            then Config.mini.qs_pos   = _snapPos(QS.QSWin)            end
+        if FS  and FS.FSWin            then Config.mini.fs_pos   = _snapPos(FS.FSWin)            end
+        if Win                         then Config.mini.main_pos = _snapPos(Win)                 end
+        if UB and UB.UBWin then
+            local vp  = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
+            local ax  = UB.UBWin.Position.X.Scale * vp.X + UB.UBWin.Position.X.Offset
+            local ay  = UB.UBWin.Position.Y.Scale * vp.Y + UB.UBWin.Position.Y.Offset
+            Config.mini.ub_pos = { x = ax, y = ay, xs = 0, ys = 0 }
+        end
+        if _G.SpammerGui and _G.SpammerGui.win then
+            Config.mini.spam_pos = _snapPos(_G.SpammerGui.win)
+        end
+        local _custWin = GUI and GUI:FindFirstChild("CustomizeSpamGui")
+        if _custWin then
+            Config.mini.customize_pos = _snapPos(_custWin)
+        end
+        local data = {
+            toggles      = Config.toggles  or {},
+            keybinds     = Config.keybinds or {},
+            mini         = Config.mini     or {},
+            sliders      = Config.sliders  or {},
+            spammer      = Config.spammer  or {},
+            theme        = Config.theme    or {},
+            version      = 1,
+        }
+        local encoded = HttpService:JSONEncode(data)
+        task.spawn(function()
+            pcall(function() writefile(_FH_SAVE_PATH, encoded) end)
+        end)
+    end)
+end
+local function FH_SaveConfig()
+    _FH_SaveDebounceToken = _FH_SaveDebounceToken + 1
+    _FH_SaveLastQueued = tick()
+    _FH_DoSaveConfig()
+end
+task.spawn(function()
+    while true do
+        task.wait(4)
+        if _FH_RestoreComplete then
+            pcall(FH_SaveConfig)
+        end
+    end
+end)
+local _FH_SavedConfig = FH_LoadConfig()
+Config = {
+    toggles  = (_FH_SavedConfig and _FH_SavedConfig.toggles)  or {},
+    keybinds = (_FH_SavedConfig and _FH_SavedConfig.keybinds) or {},
+    mini     = (_FH_SavedConfig and _FH_SavedConfig.mini)     or {},
+    sliders  = (_FH_SavedConfig and _FH_SavedConfig.sliders)  or {},
+    spammer  = (_FH_SavedConfig and _FH_SavedConfig.spammer)  or {},
+    theme    = (_FH_SavedConfig and _FH_SavedConfig.theme)    or {},
+    version  = 1,
+}
+
+if _FH_SavedConfig and _FH_SavedConfig.mini then
+    _G._FH_POS = {}
+    for k, v in pairs(_FH_SavedConfig.mini) do _G._FH_POS[k] = v end
+end
+
+local ShowToggleNotification
+local VirtualInputManager = Instance.new("VirtualInputManager")
+_G.FadedHubAlive = true
+local FriendsESPEnabled = false
+local FriendsESPConnections = {}
+local V3 = { enabled = false, potionOn = false, giant = nil, potionEquipped = false }
+local FPS = { connections = {} }
+local AntiRagdoll = { connections = {}, running = false }
+local SS = {
+    player           = nil,
+    teleporting      = false,
+    debounce         = false,
+    speed            = false,
+    minimized        = false,
+    dragging         = false,
+    dragStart        = nil,
+    panelStart       = nil,
+    potionState      = false,
+    autoTPUnlockState = false,
+    stealMethod      = "Walk",
+    semiInstantMode  = "Semi",
+    _scriptStartTime = tick(),
+    _autoFullSwitched = false,
+    W = 138, H = 220,
+    BG        = Color3.fromRGB(15, 15, 15),
+    HDR       = Color3.fromRGB(8,  8,  8),
+    BTN       = Color3.fromRGB(24, 24, 24),
+    BTN_HOVER = Color3.fromRGB(38, 38, 38),
+}
+local SP = {
+    W = 150, H = 130,
+    minimized  = false,
+    dragging   = false,
+    dragStart  = nil,
+    panelStart = nil,
+    state      = false,
+    entry      = { keyCode = nil },
+    kb2Debounce = false,
+}
+local AB = {
+    W = 155, H = 60,
+    minimized  = false,
+    dragging   = false,
+    dragStart  = nil,
+    panelStart = nil,
+    allowState = false,
+}
+local FA = {}
+local FD = {}
+local QP = {}
+local CD = {}
+local SVN = {}
+local STP = {}
+local QS  = {}
+local PS  = {}
+local UB  = {
+    W = 180, H = 74,
+    minimized  = false,
+    dragging   = false,
+    dragStart  = nil,
+    panelStart = nil,
+}
+local Win, BorderFrame
+local function setGuiVisible(vis)
+    Win.Visible         = vis
+    BorderFrame.Visible = vis
+end
+local hidden    = false
+local animating = false
+local HIDE_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+local SHOW_INFO = TweenInfo.new(0.5,  Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local T, F, M, S
+local Tween, Corner, Stroke, Padding, Label
+local GUI, WIN_W, WIN_H
+local BOOK_OPEN
+local BANNER_W, BANNER_H
+local BannerStrokeInst
+local BannerTitle, BannerDev, BannerStats
+local bannerAngle, fpsClock, fpsFrames, displayFPS
+local Hdr, HdrFill, HdrLine, Dot, TitleLbl, VerLbl
+local TabBar, TBLine, TabLayout, ContentArea
+local CreateToggle, CreateSection, MakeScroll
+local Tabs, ActiveTab, TabSwiping, TabIndex
+local SLIDE_IN, SLIDE_OUT, ActivateTab, TAB_W, CreateTab
+local CombatTab, VisualTab, PlayerTab, MiscTab
+local TopBanner
+local keybindBindingTarget = nil
+local keybindEntries = {}
+local Player = Players.LocalPlayer
+local LocalPlayer = Player
+
+local antiDieConnection = nil
+local antiDieDisabled = false
+local function setupAntiDie()
+    if antiDieDisabled then return end
+    local character = Player.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    if antiDieConnection then
+        pcall(function() antiDieConnection:Disconnect() end)
+    end
+    antiDieConnection = humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+        if antiDieDisabled then return end
+        if humanoid.Health <= 0 then
+            humanoid.Health = humanoid.MaxHealth
+        end
+    end)
+end
+setupAntiDie()
+Player.CharacterAdded:Connect(function() task.wait(0.1); setupAntiDie() end)
+
+do
+    _G._FH_AntiGummyBear  = _G._FH_AntiGummyBear  or false
+    _G._FH_AntiAdminPanel = _G._FH_AntiAdminPanel or false
+
+    local antiGummyRespawnGraceUntil = 0
+    local originalScales   = {}
+    local originalHipHeight = nil
+    local scaleNames = {
+        "HeadScale", "BodyDepthScale", "BodyHeightScale",
+        "BodyProportionScale", "BodyTypeScale", "BodyWidthScale",
+    }
+    local function captureOriginals()
+        local char = Player.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        originalHipHeight = hum.HipHeight
+        originalScales = {}
+        for _, name in ipairs(scaleNames) do
+            local sv = hum:FindFirstChild(name)
+            if sv then originalScales[name] = sv.Value end
+        end
+    end
+    Player.CharacterAdded:Connect(function(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+        antiGummyRespawnGraceUntil = tick() + 1.5
+        task.wait(0.1)
+        captureOriginals()
+    end)
+    task.spawn(captureOriginals)
+
+    local _ctrlCache = nil
+    local function getControls()
+        if _ctrlCache then return _ctrlCache end
+        local ps = Player:FindFirstChild("PlayerScripts")
+        local pm = ps and ps:FindFirstChild("PlayerModule")
+        if not pm then return nil end
+        local ok, mod = pcall(require, pm)
+        if not ok or not mod then return nil end
+        local ok2, c = pcall(function() return mod:GetControls() end)
+        if ok2 and c then _ctrlCache = c end
+        return _ctrlCache
+    end
+    Player.CharacterAdded:Connect(function() _ctrlCache = nil end)
+
+    local _charController, _jumpscareMod
+    local function _tryRequireCharController()
+        if _charController ~= nil then return _charController end
+        local ok, mod = pcall(function()
+            return require(game:GetService("ReplicatedStorage"):WaitForChild("Controllers"):WaitForChild("CharacterController"))
+        end)
+        _charController = ok and mod or false
+        return _charController
+    end
+    local function _tryRequireJumpscare()
+        if _jumpscareMod ~= nil then return _jumpscareMod end
+        local ok, mod = pcall(function()
+            return require(game:GetService("ReplicatedStorage"):WaitForChild("Datas"):WaitForChild("AdminCommands"):WaitForChild("jumpscare"))
+        end)
+        _jumpscareMod = ok and mod or false
+        return _jumpscareMod
+    end
+
+    local function clearGummyToolBlockState(char)
+        for _, inst in ipairs({ Player, char }) do
+            if inst then
+                if inst:GetAttribute("BlockTools") ~= nil and inst:GetAttribute("BlockTools") ~= false then
+                    inst:SetAttribute("BlockTools", false)
+                end
+                if inst:GetAttribute("Web") ~= nil and inst:GetAttribute("Web") ~= false then
+                    inst:SetAttribute("Web", false)
+                end
+            end
+        end
+        if char and char:GetAttribute("BackpackReady") == false then
+            char:SetAttribute("BackpackReady", true)
+        end
+    end
+
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not (_G._FH_AntiGummyBear or _G._FH_AntiAdminPanel) then continue end
+            local char = Player.Character
+            if not char then continue end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hum or not hrp then continue end
+
+            if _G._FH_AntiGummyBear and tick() >= antiGummyRespawnGraceUntil then
+                clearGummyToolBlockState(char)
+            end
+
+            if _G._FH_AntiAdminPanel then
+                for _, v in ipairs(char:GetDescendants()) do
+                    if v:IsA("BallSocketConstraint") or v:IsA("HingeConstraint") or v:IsA("Attachment") then
+                        v:Destroy()
+                    elseif v:IsA("Motor6D") then
+                        v.Enabled = true
+                    end
+                end
+                local ctrl = getControls()
+                if ctrl then pcall(function() ctrl:Enable() end) end
+                local state = hum:GetState()
+                if state ~= Enum.HumanoidStateType.Running
+                    and state ~= Enum.HumanoidStateType.Jumping
+                    and state ~= Enum.HumanoidStateType.Freefall then
+                    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Running) end)
+                end
+                if workspace.CurrentCamera and workspace.CurrentCamera.CameraSubject ~= hum then
+                    workspace.CurrentCamera.CameraSubject = hum
+                end
+                local ragdollEnd = Player:GetAttribute("RagdollEndTime") or 0
+                if ragdollEnd > workspace:GetServerTimeNow() then
+                    hrp.Velocity = Vector3.zero
+                    Player:SetAttribute("RagdollEndTime", 0)
+                end
+                local cc = _tryRequireCharController()
+                if cc and ctrl then
+                    ctrl.moveFunction = function(p, x, z) cc:RequestMove(p, x, z) end
+                end
+                local jm = _tryRequireJumpscare()
+                if jm and jm.effects and jm.effects.Victim then
+                    jm.effects.Victim = function() end
+                end
+                if originalHipHeight and hum.HipHeight ~= originalHipHeight then
+                    hum.HipHeight = originalHipHeight
+                end
+                for _, name in ipairs(scaleNames) do
+                    local sv = hum:FindFirstChild(name)
+                    if sv and originalScales[name] and sv.Value ~= originalScales[name] then
+                        sv.Value = originalScales[name]
+                    end
+                end
+                for _, v in ipairs(char:GetChildren()) do
+                    if v:IsA("Model") and not v:IsA("BackpackItem") then
+                        v:Destroy()
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local ToggleHandlers = {}
+local instantRespawnDebounce = false
+local function instantRespawn(_btn)
+    if instantRespawnDebounce then return end
+    instantRespawnDebounce = true
+    local lp      = Players.LocalPlayer
+    local oldChar = lp.Character
+    if not oldChar then instantRespawnDebounce = false; return end
+    local hrp = oldChar:FindFirstChild("HumanoidRootPart")
+    local hum = oldChar:FindFirstChildWhichIsA("Humanoid")
+    if hrp and hum then
+        hum.Health = 0
+        pcall(function() hrp.CFrame = CFrame.new(0, 50000, 0) end)
+    end
+    while lp.Character == oldChar do task.wait() end
+    instantRespawnDebounce = false
+end
+
+local function doSelectedReset()
+    local lp   = Players.LocalPlayer
+    local char = lp and lp.Character
+    if not char then return end
+    task.spawn(function()
+        pcall(function()
+            local RSrv  = game:GetService("RunService")
+            local remote = _G._FH_GetRemote and _G._FH_GetRemote("Tools/Cooldown")
+            if not remote then return end
+            local savedTools = {}
+            local bp  = lp:FindFirstChild("Backpack")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then pcall(function() hum:UnequipTools() end) end
+            for _, t in ipairs(char:GetChildren()) do
+                if t:IsA("Tool") then table.insert(savedTools, t); t.Parent = nil end
+            end
+            if bp then
+                for _, t in ipairs(bp:GetChildren()) do
+                    if t:IsA("Tool") then table.insert(savedTools, t); t.Parent = nil end
+                end
+            end
+            lp.Character = nil
+            local sending  = true
+            local loopConn
+            local fire     = remote.FireServer
+            local throttle = 0
+            loopConn = RSrv.Heartbeat:Connect(function(dt)
+                if not sending then
+                    if loopConn then loopConn:Disconnect(); loopConn = nil end
+                    return
+                end
+                throttle = throttle + dt
+                if throttle >= 0.1 then
+                    throttle = 0
+                    pcall(fire, remote, "f888ee6e-c86d-46e1-93d7-0639d6635d42", lp, "balloon")
+                end
+                if sending and lp.Character then lp.Character = nil end
+            end)
+            local charConn
+            charConn = lp.CharacterAdded:Connect(function()
+                sending = false
+                if loopConn then loopConn:Disconnect(); loopConn = nil end
+                if charConn then charConn:Disconnect() end
+                task.spawn(function()
+                    local newBp = lp:WaitForChild("Backpack", 3)
+                    if newBp then
+                        for _, t in ipairs(savedTools) do if t then t.Parent = newBp end end
+                    end
+                    savedTools = {}
+                end)
+            end)
+            task.delay(4, function()
+                sending = false
+                if loopConn then loopConn:Disconnect(); loopConn = nil end
+                local curBp = lp:FindFirstChild("Backpack")
+                if curBp and #savedTools > 0 then
+                    for _, t in ipairs(savedTools) do if t then t.Parent = curBp end end
+                    savedTools = {}
+                end
+            end)
+        end)
+    end)
+end
+local _silCtx = { stealStart = 0, victim = "Unknown", halfTP = false, giantUsed = false }
+local function _sil_getVictimFromPrompt(prompt)
+    if not prompt then return "Unknown"end
+    local plots = workspace:FindFirstChild("Plots")
+    if not plots then return "Unknown"end
+    for _, plot in ipairs(plots:GetChildren()) do
+        if prompt:IsDescendantOf(plot) then
+            local sign = plot:FindFirstChild("PlotSign")
+            if sign then
+                local sf = sign:FindFirstChildWhichIsA("SurfaceGui", true)
+                if sf then
+                    local lbl = sf:FindFirstChildWhichIsA("TextLabel", true)
+                    if lbl and lbl.Text ~= ""
+                    then return lbl.Text end
+                end
+            end
+            break
+        end
+    end
+    return "Unknown"end
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Toggles = {}
+pcall(function() _FH_AG_AnimalsData = require(ReplicatedStorage:WaitForChild("Datas", 30):WaitForChild("Animals", 30)) end)
+pcall(function() _FH_AG_NumberUtils = require(ReplicatedStorage:WaitForChild("Utils", 30):WaitForChild("NumberUtils", 30)) end)
+pcall(function() _FH_AG_AnimalsShared = require(ReplicatedStorage:WaitForChild("Shared", 30):WaitForChild("Animals", 30)) end)
+_FH_AG_SyncRemotes = (function()
+    local folder
+    pcall(function() folder = ReplicatedStorage:WaitForChild("Packages", 30):WaitForChild("Synchronizer", 30) end)
+    if not folder then return { channelFolder = nil, routeRemote = nil, requestData = nil } end
+    return {
+        channelFolder = folder:WaitForChild("Channel", 30),
+        routeRemote = folder:WaitForChild("CommunicationRoute", 30),
+        requestData = folder:FindFirstChild("RequestData"),
+    }
+end)()
+_FH_AG_PlotSync = {
+    caches = {},
+    connections = {},
+}
+_FH_AG_CachedBrainrots = {}
+function _FH_AG_SplitPath(path)
+    if typeof(path) == "table" then return path end
+    local out = {}
+    for part in string.gmatch(tostring(path), "[^%.]+") do
+        table.insert(out, tonumber(part) or part)
+    end
+    return out
+end
+function _FH_AG_ResolvePath(path, root)
+    local current = root
+    local parent = nil
+    local key = nil
+    for _, part in ipairs(_FH_AG_SplitPath(path)) do
+        parent = current
+        key = part
+        current = current and current[part] or nil
+    end
+    return current, parent, key
+end
+function _FH_AG_IsMyPlot(plot)
+    if not plot or not plot:IsA("Model") then return false ... (721 Ko restants)
