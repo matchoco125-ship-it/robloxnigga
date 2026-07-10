@@ -1,0 +1,253 @@
+-- leak by discord.gg/GvnWg3uvRh
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local LP = Players.LocalPlayer
+
+local State = { enabled = false }
+local _bypassConn = nil
+
+local BAT_THRESHOLD = 75
+local CAP_SPEED = 63
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local function startBypass()
+    if _bypassConn then _bypassConn:Disconnect() end
+    
+    _bypassConn = RunService.Heartbeat:Connect(function()
+        if not State.enabled then return end
+        
+        local char = LP.Character
+        if not char then return end
+        
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        
+        local vel = root.AssemblyLinearVelocity
+        local hSpd = Vector3.new(vel.X, 0, vel.Z).Magnitude
+        
+        if hSpd > BAT_THRESHOLD then
+            local md = hum.MoveDirection
+            if md.Magnitude > 0 then
+                root.AssemblyLinearVelocity = Vector3.new(md.X * CAP_SPEED, vel.Y, md.Z * CAP_SPEED)
+            else
+                root.AssemblyLinearVelocity = Vector3.new(0, vel.Y, 0)
+            end
+        end
+        
+        if root.AssemblyAngularVelocity.Magnitude > 0.3 then
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+        
+        local hs = hum:GetState()
+        if hs == Enum.HumanoidStateType.Physics
+        or hs == Enum.HumanoidStateType.Ragdoll
+        or hs == Enum.HumanoidStateType.FallingDown then
+            hum:ChangeState(Enum.HumanoidStateType.Running)
+            hum.PlatformStand = false
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+    end)
+end
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local function stopBypass()
+    if _bypassConn then _bypassConn:Disconnect(); _bypassConn = nil end
+end
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local old = game:GetService("CoreGui"):FindFirstChild("LXHubBypassGUI")
+if old then old:Destroy() end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "LXHubBypassGUI"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 15
+gui.IgnoreGuiInset = true
+if not pcall(function() gui.Parent = game:GetService("CoreGui") end) then
+    gui.Parent = LP:WaitForChild("PlayerGui")
+end
+
+local C = {
+    bg      = Color3.fromRGB(8, 8, 8),
+    card    = Color3.fromRGB(14, 14, 14),
+    border  = Color3.fromRGB(38, 38, 38),
+    white   = Color3.fromRGB(240, 240, 240),
+    dim     = Color3.fromRGB(80, 80, 80),
+    dim2    = Color3.fromRGB(45, 45, 45),
+    on      = Color3.fromRGB(230, 230, 230),
+}
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local main = Instance.new("Frame", gui)
+main.Name = "Main"
+main.Size = UDim2.new(0, 220, 0, 66)
+main.Position = UDim2.new(0.5, -110, 0, 55)
+main.BackgroundColor3 = C.bg
+main.BorderSizePixel = 0
+main.Active = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
+local mainStroke = Instance.new("UIStroke", main)
+mainStroke.Color = C.border
+mainStroke.Thickness = 1
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local topBar = Instance.new("Frame", main)
+topBar.Size = UDim2.new(1, 0, 0, 24)
+topBar.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+topBar.BorderSizePixel = 0
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 10)
+local topPatch = Instance.new("Frame", topBar)
+topPatch.Size = UDim2.new(1, 0, 0, 10)
+topPatch.Position = UDim2.new(0, 0, 1, -10)
+topPatch.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+topPatch.BorderSizePixel = 0
+local topDiv = Instance.new("Frame", topBar)
+topDiv.Size = UDim2.new(1, 0, 0, 1)
+topDiv.Position = UDim2.new(0, 0, 1, -1)
+topDiv.BackgroundColor3 = C.border
+topDiv.BorderSizePixel = 0
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local titleLbl = Instance.new("TextLabel", topBar)
+titleLbl.Size = UDim2.new(1, -10, 1, 0)
+titleLbl.Position = UDim2.new(0, 10, 0, 0)
+titleLbl.BackgroundTransparency = 1
+titleLbl.Text = "LX HUB"
+titleLbl.TextColor3 = C.white
+titleLbl.Font = Enum.Font.GothamBlack
+titleLbl.TextSize = 10
+titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local row = Instance.new("Frame", main)
+row.Size = UDim2.new(1, -20, 0, 28)
+row.Position = UDim2.new(0, 10, 0, 30)
+row.BackgroundColor3 = C.card
+row.BorderSizePixel = 0
+Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
+Instance.new("UIStroke", row).Color = C.border
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local rowLbl = Instance.new("TextLabel", row)
+rowLbl.Size = UDim2.new(0, 125, 1, 0)
+rowLbl.Position = UDim2.new(0, 10, 0, 0)
+rowLbl.BackgroundTransparency = 1
+rowLbl.Text = "Anti Bat Bypass"
+rowLbl.TextColor3 = C.white
+rowLbl.Font = Enum.Font.GothamBold
+rowLbl.TextSize = 10
+rowLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local statusLbl = Instance.new("TextLabel", row)
+statusLbl.Size = UDim2.new(0, 40, 1, 0)
+statusLbl.Position = UDim2.new(1, -90, 0, 0)
+statusLbl.BackgroundTransparency = 1
+statusLbl.Text = "OFF"
+statusLbl.TextColor3 = C.dim
+statusLbl.Font = Enum.Font.GothamBold
+statusLbl.TextSize = 10
+statusLbl.TextXAlignment = Enum.TextXAlignment.Right
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local PW, PH = 30, 16
+local pillBg = Instance.new("Frame", row)
+pillBg.Size = UDim2.new(0, PW, 0, PH)
+pillBg.Position = UDim2.new(1, -(PW + 8), 0.5, -(PH/2))
+pillBg.BackgroundColor3 = C.dim2
+pillBg.BorderSizePixel = 0
+Instance.new("UICorner", pillBg).CornerRadius = UDim.new(0, 8)
+local pillStroke = Instance.new("UIStroke", pillBg)
+pillStroke.Color = C.border
+pillStroke.Thickness = 1
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local pillDot = Instance.new("Frame", pillBg)
+pillDot.Size = UDim2.new(0, 10, 0, 10)
+pillDot.Position = UDim2.new(0, 3, 0.5, -5)
+pillDot.BackgroundColor3 = C.dim
+pillDot.BorderSizePixel = 0
+Instance.new("UICorner", pillDot).CornerRadius = UDim.new(0, 3)
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local clickBtn = Instance.new("TextButton", row)
+clickBtn.Size = UDim2.new(1, 0, 1, 0)
+clickBtn.BackgroundTransparency = 1
+clickBtn.Text = ""
+clickBtn.ZIndex = 5
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local _pulsing = false
+local function setToggle(on)
+    State.enabled = on
+    if on then
+        startBypass()
+        TweenService:Create(pillBg, TweenInfo.new(0.18), {BackgroundColor3 = C.white}):Play()
+        TweenService:Create(pillStroke, TweenInfo.new(0.18), {Color = C.white}):Play()
+        TweenService:Create(pillDot, TweenInfo.new(0.18, Enum.EasingStyle.Back), {
+            Position = UDim2.new(1, -13, 0.5, -5),
+            BackgroundColor3 = C.bg,
+        }):Play()
+        TweenService:Create(mainStroke, TweenInfo.new(0.18), {Color = C.white}):Play()
+        statusLbl.Text = "ON"
+        statusLbl.TextColor3 = C.white
+        if not _pulsing then
+            _pulsing = true
+            task.spawn(function()
+                while State.enabled do
+                    TweenService:Create(mainStroke, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Thickness = 2}):Play()
+                    task.wait(0.9)
+                    TweenService:Create(mainStroke, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Thickness = 1}):Play()
+                    task.wait(0.9)
+                end
+                mainStroke.Thickness = 1
+                _pulsing = false
+            end)
+        end
+    else
+        stopBypass()
+        TweenService:Create(pillBg, TweenInfo.new(0.18), {BackgroundColor3 = C.dim2}):Play()
+        TweenService:Create(pillStroke, TweenInfo.new(0.18), {Color = C.border}):Play()
+        TweenService:Create(pillDot, TweenInfo.new(0.18, Enum.EasingStyle.Back), {
+            Position = UDim2.new(0, 3, 0.5, -5),
+            BackgroundColor3 = C.dim,
+        }):Play()
+        TweenService:Create(mainStroke, TweenInfo.new(0.18), {Color = C.border}):Play()
+        statusLbl.Text = "OFF"
+        statusLbl.TextColor3 = C.dim
+    end
+end
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+clickBtn.MouseButton1Click:Connect(function() setToggle(not State.enabled) end)
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+local dragging, dragStart, startPos = false, nil, nil
+main.InputBegan:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1
+    or inp.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; dragStart = inp.Position; startPos = main.Position
+        inp.Changed:Connect(function()
+            if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+                main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (inp.Position.X - dragStart.X), startPos.Y.Scale, startPos.Y.Offset + (inp.Position.Y - dragStart.Y))
+            end
+        end)
+    end
+end)
+main.InputEnded:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then dragging = false end
+end)
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+UIS.InputBegan:Connect(function(inp, gp)
+    if gp then return end
+    if inp.KeyCode == Enum.KeyCode.G then setToggle(not State.enabled) end
+end)
+
+-- JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz
+print("JOIN FOR MORE SOURCES: https://discord.gg/wFHXTFFHmz")
