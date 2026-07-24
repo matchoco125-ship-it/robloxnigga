@@ -1,0 +1,550 @@
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local old = playerGui:FindFirstChild("VampireResetGUI")
+if old then
+	old:Destroy()
+end
+
+local RED = Color3.fromRGB(255, 46, 42)
+local WHITE = Color3.fromRGB(235, 235, 235)
+local GREY = Color3.fromRGB(170, 170, 170)
+local DARK = Color3.fromRGB(12, 10, 10)
+local DARKER = Color3.fromRGB(18, 10, 10)
+
+--// Save Config
+local CONFIG_FILE = "VampireReset_Config.json"
+
+local _vamp_isfile = isfile or (syn and syn.isfile) or function(path)
+	local ok, result = pcall(function()
+		return readfile(path)
+	end)
+	return ok and result ~= nil
+end
+
+local _vamp_readfile = readfile or (syn and syn.readfile)
+local _vamp_writefile = writefile or (syn and syn.writefile)
+
+local canSaveConfig = type(_vamp_readfile) == "function" and type(_vamp_writefile) == "function"
+
+local savedConfig = {}
+
+local function udim2ToTable(u)
+	return {
+		xs = u.X.Scale,
+		xo = u.X.Offset,
+		ys = u.Y.Scale,
+		yo = u.Y.Offset
+	}
+end
+
+local function tableToUDim2(t, fallback)
+	if type(t) == "table" then
+		return UDim2.new(
+			tonumber(t.xs) or fallback.X.Scale,
+			tonumber(t.xo) or fallback.X.Offset,
+			tonumber(t.ys) or fallback.Y.Scale,
+			tonumber(t.yo) or fallback.Y.Offset
+		)
+	end
+
+	return fallback
+end
+
+local function loadVampireConfig()
+	if not canSaveConfig then return end
+	if not _vamp_isfile(CONFIG_FILE) then return end
+
+	local ok, data = pcall(function()
+		return HttpService:JSONDecode(_vamp_readfile(CONFIG_FILE))
+	end)
+
+	if ok and type(data) == "table" then
+		savedConfig = data
+	end
+end
+
+local function saveVampireConfig()
+	if not canSaveConfig then return end
+
+	pcall(function()
+		_vamp_writefile(CONFIG_FILE, HttpService:JSONEncode(savedConfig))
+	end)
+end
+
+loadVampireConfig()
+
+--// Vampire Insta Reset Logic
+_G.VampireResetRemote = _G.VampireResetRemote or nil
+_G.VampireResetGuid = _G.VampireResetGuid or "f888ee6e-c86d-46e1-93d7-0639d6635d42"
+
+pcall(function()
+	if not _G.VampireResetHooked and hookfunction and newcclosure then
+		_G.VampireResetHooked = true
+
+		local oldFire
+		oldFire = hookfunction(Instance.new("RemoteEvent").FireServer, newcclosure(function(self, ...)
+			if not _G.VampireResetRemote
+				and typeof(self) == "Instance"
+				and self:IsA("RemoteEvent")
+				and self.Name:sub(1, 3) == "RE/" then
+				_G.VampireResetRemote = self
+			end
+
+			return oldFire(self, ...)
+		end))
+	end
+end)
+
+local function findVampireResetRemote()
+	if _G.VampireResetRemote then
+		return _G.VampireResetRemote
+	end
+
+	for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
+		if desc:IsA("RemoteEvent") and desc.Name:sub(1, 3) == "RE/" then
+			_G.VampireResetRemote = desc
+			break
+		end
+	end
+
+	return _G.VampireResetRemote
+end
+
+local function vampireInstaReset()
+	local remote = findVampireResetRemote()
+	if not remote then
+		return false
+	end
+
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+	if humanoid and humanoid.Health <= 0 then
+		pcall(function()
+			remote:FireServer(_G.VampireResetGuid, player, "balloon")
+		end)
+		return true
+	end
+
+	local resetDetected = false
+	local resetConns = {}
+
+	if humanoid then
+		table.insert(resetConns, humanoid.Died:Connect(function()
+			resetDetected = true
+		end))
+
+		table.insert(resetConns, humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+			if humanoid.Health <= 0 then
+				resetDetected = true
+			end
+		end))
+	end
+
+	if character then
+		table.insert(resetConns, character.AncestryChanged:Connect(function(_, parent)
+			if not parent then
+				resetDetected = true
+			end
+		end))
+	end
+
+	task.spawn(function()
+		for _ = 1, 10 do
+			if resetDetected then
+				break
+			end
+
+			pcall(function()
+				remote:FireServer(_G.VampireResetGuid, player, "balloon")
+			end)
+
+			task.wait(0.05)
+		end
+
+		for _, conn in ipairs(resetConns) do
+			pcall(function()
+				conn:Disconnect()
+			end)
+		end
+	end)
+
+	return true
+end
+
+_G.VampireInstaReset = vampireInstaReset
+
+--// GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "VampireResetGUI"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 999
+gui.IgnoreGuiInset = true
+gui.Parent = playerGui
+
+local isMobileMode = savedConfig.mobileMode == true
+
+local function makeCorner(parent, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = parent
+	return c
+end
+
+local function makeStroke(parent, color, thickness, transparency)
+	local s = Instance.new("UIStroke")
+	s.Color = color
+	s.Thickness = thickness
+	s.Transparency = transparency or 0
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = parent
+	return s
+end
+
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.new(0, 190, 0, 120)
+main.Position = tableToUDim2(savedConfig.mainPosition, UDim2.new(0.5, -95, 0.5, -60))
+main.BackgroundColor3 = DARK
+main.BackgroundTransparency = 0.68
+main.BorderSizePixel = 0
+main.Active = true
+main.Draggable = true
+main.ClipsDescendants = true
+main.Parent = gui
+
+makeCorner(main, 9)
+makeStroke(main, RED, 1, 0.18)
+
+local bg = Instance.new("ImageLabel")
+bg.Name = "Photo"
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.Position = UDim2.new(0, 0, 0, 0)
+bg.BackgroundTransparency = 1
+bg.Image = "rbxassetid://14640607134"
+bg.ScaleType = Enum.ScaleType.Crop
+bg.ImageTransparency = 0.35
+bg.ZIndex = 1
+bg.Parent = main
+
+local photoTint = Instance.new("Frame")
+photoTint.Name = "PhotoTint"
+photoTint.Size = UDim2.new(1, 0, 1, 0)
+photoTint.Position = UDim2.new(0, 0, 0, 0)
+photoTint.BackgroundColor3 = Color3.fromRGB(110, 18, 18)
+photoTint.BackgroundTransparency = 1
+photoTint.BorderSizePixel = 0
+photoTint.ZIndex = 2
+photoTint.Parent = main
+
+local darkFilm = Instance.new("Frame")
+darkFilm.Name = "DarkFilm"
+darkFilm.Size = UDim2.new(1, 0, 1, 0)
+darkFilm.Position = UDim2.new(0, 0, 0, 0)
+darkFilm.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+darkFilm.BackgroundTransparency = 0.84
+darkFilm.BorderSizePixel = 0
+darkFilm.ZIndex = 3
+darkFilm.Parent = main
+
+local topLine = Instance.new("Frame")
+topLine.Name = "TopLine"
+topLine.Size = UDim2.new(1, 0, 0, 2)
+topLine.Position = UDim2.new(0, 0, 0, 0)
+topLine.BackgroundColor3 = RED
+topLine.BackgroundTransparency = 0.08
+topLine.BorderSizePixel = 0
+topLine.ZIndex = 10
+topLine.Parent = main
+
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Size = UDim2.new(1, -70, 0, 13)
+title.Position = UDim2.new(0, 10, 0, 12)
+title.BackgroundTransparency = 1
+title.Text = "VAMPIRE RESET"
+title.TextColor3 = RED
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 8
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+title.TextStrokeTransparency = 0.42
+title.TextTransparency = 0.05
+title.ZIndex = 11
+title.Parent = main
+
+local subtitle = Instance.new("TextLabel")
+subtitle.Name = "Subtitle"
+subtitle.Size = UDim2.new(1, -70, 0, 8)
+subtitle.Position = UDim2.new(0, 10, 0, 23)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "instant reset"
+subtitle.TextColor3 = WHITE
+subtitle.Font = Enum.Font.GothamBold
+subtitle.TextSize = 5
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+subtitle.TextStrokeTransparency = 0.7
+subtitle.TextTransparency = 0.12
+subtitle.ZIndex = 11
+subtitle.Parent = main
+
+local modeButton = Instance.new("TextButton")
+modeButton.Name = "ModeButton"
+modeButton.Size = UDim2.new(0, 49, 0, 22)
+modeButton.Position = UDim2.new(1, -58, 0, 8)
+modeButton.BackgroundColor3 = Color3.fromRGB(18, 14, 14)
+modeButton.BackgroundTransparency = 0.46
+modeButton.BorderSizePixel = 0
+modeButton.AutoButtonColor = false
+modeButton.Text = "PC"
+modeButton.TextColor3 = RED
+modeButton.Font = Enum.Font.GothamBlack
+modeButton.TextSize = 8
+modeButton.TextTransparency = 0.04
+modeButton.ZIndex = 12
+modeButton.Parent = main
+
+makeCorner(modeButton, 8)
+makeStroke(modeButton, RED, 0.8, 0.82)
+
+local keyCard = Instance.new("Frame")
+keyCard.Name = "KeybindCard"
+keyCard.Size = UDim2.new(1, -20, 0, 43)
+keyCard.Position = UDim2.new(0, 10, 0, 52)
+keyCard.BackgroundColor3 = DARKER
+keyCard.BackgroundTransparency = 0.56
+keyCard.BorderSizePixel = 0
+keyCard.ZIndex = 10
+keyCard.Parent = main
+
+makeCorner(keyCard, 10)
+makeStroke(keyCard, RED, 0.8, 0.82)
+
+local keyTitle = Instance.new("TextLabel")
+keyTitle.Name = "KeyTitle"
+keyTitle.Size = UDim2.new(0, 70, 0, 10)
+keyTitle.Position = UDim2.new(0, 10, 0, 8)
+keyTitle.BackgroundTransparency = 1
+keyTitle.Text = "KEYBIND"
+keyTitle.TextColor3 = WHITE
+keyTitle.Font = Enum.Font.GothamBlack
+keyTitle.TextSize = 6
+keyTitle.TextXAlignment = Enum.TextXAlignment.Left
+keyTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+keyTitle.TextStrokeTransparency = 0.82
+keyTitle.TextTransparency = 0.08
+keyTitle.ZIndex = 11
+keyTitle.Parent = keyCard
+
+local dot = Instance.new("Frame")
+dot.Name = "Dot"
+dot.Size = UDim2.new(0, 5, 0, 5)
+dot.Position = UDim2.new(0, 10, 0, 24)
+dot.BackgroundColor3 = RED
+dot.BackgroundTransparency = 0.05
+dot.BorderSizePixel = 0
+dot.ZIndex = 11
+dot.Parent = keyCard
+
+makeCorner(dot, 99)
+makeStroke(dot, Color3.fromRGB(0, 0, 0), 1, 0.65)
+
+local ready = Instance.new("TextLabel")
+ready.Name = "Ready"
+ready.Size = UDim2.new(0, 80, 0, 10)
+ready.Position = UDim2.new(0, 18, 0, 21)
+ready.BackgroundTransparency = 1
+ready.Text = "Ready"
+ready.TextColor3 = GREY
+ready.Font = Enum.Font.Gotham
+ready.TextSize = 6
+ready.TextXAlignment = Enum.TextXAlignment.Left
+ready.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+ready.TextStrokeTransparency = 1
+ready.TextTransparency = 0.16
+ready.ZIndex = 11
+ready.Parent = keyCard
+
+local rButton = Instance.new("TextButton")
+rButton.Name = "RButton"
+rButton.Size = UDim2.new(0, 50, 0, 20)
+rButton.Position = UDim2.new(1, -60, 0.5, -10)
+rButton.BackgroundColor3 = Color3.fromRGB(30, 8, 12)
+rButton.BackgroundTransparency = 0.50
+rButton.BorderSizePixel = 0
+rButton.AutoButtonColor = false
+rButton.Text = "R"
+rButton.TextColor3 = WHITE
+rButton.Font = Enum.Font.GothamBlack
+rButton.TextSize = 9
+rButton.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+rButton.TextStrokeTransparency = 0.56
+rButton.TextTransparency = 0.04
+rButton.ZIndex = 12
+rButton.Parent = keyCard
+
+makeCorner(rButton, 7)
+makeStroke(rButton, RED, 0.7, 0.88)
+
+local tapCard = Instance.new("TextButton")
+tapCard.Name = "TapToReset"
+tapCard.Size = UDim2.new(1, -30, 0, 36)
+tapCard.Position = UDim2.new(0, 15, 0, 58)
+tapCard.BackgroundColor3 = DARKER
+tapCard.BackgroundTransparency = 0.52
+tapCard.BorderSizePixel = 0
+tapCard.AutoButtonColor = false
+tapCard.Text = "TAP TO RESET"
+tapCard.TextColor3 = RED
+tapCard.Font = Enum.Font.GothamBlack
+tapCard.TextSize = 9
+tapCard.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+tapCard.TextStrokeTransparency = 0.58
+tapCard.TextTransparency = 0.04
+tapCard.ZIndex = 13
+tapCard.Visible = false
+tapCard.Parent = main
+
+makeCorner(tapCard, 9)
+makeStroke(tapCard, RED, 0.8, 0.84)
+
+local footer = Instance.new("TextLabel")
+footer.Name = "Footer"
+footer.Size = UDim2.new(1, -20, 0, 10)
+footer.Position = UDim2.new(0, 10, 1, -16)
+footer.BackgroundTransparency = 1
+footer.Text = "discord.gg/vampire"
+footer.TextColor3 = Color3.fromRGB(225, 225, 225)
+footer.Font = Enum.Font.GothamBold
+footer.TextSize = 4
+footer.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+footer.TextStrokeTransparency = 0.78
+footer.TextTransparency = 0.20
+footer.TextXAlignment = Enum.TextXAlignment.Center
+footer.ZIndex = 11
+footer.Parent = main
+
+local savePosDebounce = false
+
+main:GetPropertyChangedSignal("Position"):Connect(function()
+	savedConfig.mainPosition = udim2ToTable(main.Position)
+
+	if savePosDebounce then return end
+	savePosDebounce = true
+
+	task.delay(0.25, function()
+		savePosDebounce = false
+		saveVampireConfig()
+	end)
+end)
+
+local function setMode(mobile)
+	isMobileMode = mobile
+
+	if mobile then
+		modeButton.Text = "MOB"
+		keyCard.Visible = false
+		tapCard.Visible = true
+	else
+		modeButton.Text = "PC"
+		keyCard.Visible = true
+		tapCard.Visible = false
+	end
+
+	savedConfig.mobileMode = isMobileMode
+	savedConfig.mainPosition = udim2ToTable(main.Position)
+	saveVampireConfig()
+end
+
+local resetDebounce = false
+
+local function pressEffect()
+	if resetDebounce then return end
+	resetDebounce = true
+
+	vampireInstaReset()
+
+	if not isMobileMode then
+		ready.Text = "Reseting..."
+		ready.TextColor3 = RED
+		ready.TextTransparency = 0
+		dot.BackgroundColor3 = Color3.fromRGB(255, 75, 70)
+		rButton.TextColor3 = RED
+	else
+		tapCard.Text = "RESETING..."
+		tapCard.TextColor3 = RED
+		tapCard.TextTransparency = 0
+	end
+
+	task.delay(0.6, function()
+		if ready then
+			ready.Text = "Ready"
+			ready.TextColor3 = GREY
+			ready.TextTransparency = 0.16
+		end
+
+		if dot then
+			dot.BackgroundColor3 = RED
+		end
+
+		if rButton then
+			rButton.TextColor3 = WHITE
+		end
+
+		if tapCard then
+			tapCard.Text = "TAP TO RESET"
+			tapCard.TextColor3 = RED
+			tapCard.TextTransparency = 0.04
+		end
+
+		resetDebounce = false
+	end)
+end
+
+modeButton.MouseButton1Click:Connect(function()
+	setMode(not isMobileMode)
+end)
+
+rButton.MouseButton1Click:Connect(pressEffect)
+tapCard.MouseButton1Click:Connect(pressEffect)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if UserInputService:GetFocusedTextBox() then return end
+
+	if input.KeyCode == Enum.KeyCode.R and not isMobileMode then
+		pressEffect()
+	end
+end)
+
+setMode(isMobileMode)
+
+
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
+print("leaked by slivin and eugene🥷")
